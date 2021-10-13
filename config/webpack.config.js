@@ -2,26 +2,36 @@ const fs = require('fs');
 const path = require('path');
 const webpack = require('webpack');
 const resolve = require('resolve');
+/** yarn & dev环境下，加快依赖包安装速度 */
 const PnpWebpackPlugin = require('pnp-webpack-plugin');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
-const CaseSensitivePathsPlugin = require('case-sensitive-paths-webpack-plugin');
+
 const InlineChunkHtmlPlugin = require('react-dev-utils/InlineChunkHtmlPlugin');
+const InterpolateHtmlPlugin = require('react-dev-utils/InterpolateHtmlPlugin');
+const WatchMissingNodeModulesPlugin = require('react-dev-utils/WatchMissingNodeModulesPlugin');
+const ModuleNotFoundPlugin = require('react-dev-utils/ModuleNotFoundPlugin');
+const ForkTsCheckerWebpackPlugin = require('react-dev-utils/ForkTsCheckerWebpackPlugin');
+const typescriptFormatter = require('react-dev-utils/typescriptFormatter');
+const ModuleScopePlugin = require('react-dev-utils/ModuleScopePlugin');
+
+/** 生产环境下压缩js代码 https://webpack.docschina.org/plugins/terser-webpack-plugin/ */
 const TerserPlugin = require('terser-webpack-plugin');
+/** 提取css代码到单独的文件中 https://webpack.docschina.org/plugins/mini-css-extract-plugin/ */
 const MiniCssExtractPlugin = require('mini-css-extract-plugin');
+/** 压缩css代码 */
 const OptimizeCSSAssetsPlugin = require('optimize-css-assets-webpack-plugin');
 const safePostCssParser = require('postcss-safe-parser');
+
+// todo 待了解
 const ManifestPlugin = require('webpack-manifest-plugin');
-const InterpolateHtmlPlugin = require('react-dev-utils/InterpolateHtmlPlugin');
-const WorkboxWebpackPlugin = require('workbox-webpack-plugin');
-const WatchMissingNodeModulesPlugin = require('react-dev-utils/WatchMissingNodeModulesPlugin');
-const ModuleScopePlugin = require('react-dev-utils/ModuleScopePlugin');
+// 构建离线应用时需要 https://segmentfault.com/a/1190000023803216
+// const WorkboxWebpackPlugin = require('workbox-webpack-plugin');
+
 const ESLintPlugin = require('eslint-webpack-plugin');
 const paths = require('./paths');
 const modules = require('./modules');
 const getClientEnvironment = require('./env');
-const ModuleNotFoundPlugin = require('react-dev-utils/ModuleNotFoundPlugin');
-const ForkTsCheckerWebpackPlugin = require('react-dev-utils/ForkTsCheckerWebpackPlugin');
-const typescriptFormatter = require('react-dev-utils/typescriptFormatter');
+// 热更
 const ReactRefreshWebpackPlugin = require('@pmmmwh/react-refresh-webpack-plugin');
 
 const postcssNormalize = require('postcss-normalize');
@@ -38,29 +48,7 @@ const reactRefreshOverlayEntry = require.resolve(
   'react-dev-utils/refreshOverlayInterop',
 );
 
-// 解决css-modules问题：css-loader和react-css-module生成的hash算法不一致
-const { interpolateName } = require('loader-utils');
-function generateScopedName(pattern) {
-  const context = process.cwd();
-  return function generate(localName, filepath) {
-    const name = pattern.replace(/\[local\]/gi, localName);
-    const loaderContext = {
-      resourcePath: filepath,
-    };
-
-    const loaderOptions = {
-      content: `${path
-        .relative(context, filepath)
-        .replace(/\\/g, '/')}\u0000${localName}`,
-      context,
-    };
-
-    const genericName = interpolateName(loaderContext, name, loaderOptions);
-    return genericName
-      .replace(new RegExp('[^a-zA-Z0-9\\-_\u00A0-\uFFFF]', 'g'), '-')
-      .replace(/^((-?[0-9])|--)/, '_$1');
-  };
-}
+const generateScopedName = require('./scripts/generateScopedName');
 
 // Some apps do not need the benefits of saving a web request, so not inlining the chunk
 // makes for a smoother build process.
@@ -627,10 +615,6 @@ module.exports = function (webpackEnv) {
             sockIntegration: false,
           },
         }),
-      // Watcher doesn't work well if you mistype casing in a path so we use
-      // a plugin that prints an error when you attempt to do this.
-      // See https://github.com/facebook/create-react-app/issues/240
-      isEnvDevelopment && new CaseSensitivePathsPlugin(),
       // If you require a missing module and then `npm install` it, you still have
       // to restart the development server for webpack to discover it. This plugin
       // makes the discovery automatic so you don't have to restart.
@@ -676,17 +660,17 @@ module.exports = function (webpackEnv) {
       new webpack.IgnorePlugin(/^\.\/locale$/, /moment$/),
       // Generate a service worker script that will precache, and keep up to date,
       // the HTML & assets that are part of the webpack build.
-      isEnvProduction &&
-        fs.existsSync(swSrc) &&
-        new WorkboxWebpackPlugin.InjectManifest({
-          swSrc,
-          dontCacheBustURLsMatching: /\.[0-9a-f]{8}\./,
-          exclude: [/\.map$/, /asset-manifest\.json$/, /LICENSE/],
-          // Bump up the default maximum size (2mb) that's precached,
-          // to make lazy-loading failure scenarios less likely.
-          // See https://github.com/cra-template/pwa/issues/13#issuecomment-722667270
-          maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
-        }),
+      // isEnvProduction &&
+      //   fs.existsSync(swSrc) &&
+      //   new WorkboxWebpackPlugin.InjectManifest({
+      //     swSrc,
+      //     dontCacheBustURLsMatching: /\.[0-9a-f]{8}\./,
+      //     exclude: [/\.map$/, /asset-manifest\.json$/, /LICENSE/],
+      //     // Bump up the default maximum size (2mb) that's precached,
+      //     // to make lazy-loading failure scenarios less likely.
+      //     // See https://github.com/cra-template/pwa/issues/13#issuecomment-722667270
+      //     maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
+      //   }),
       // TypeScript type checking
       useTypeScript &&
         new ForkTsCheckerWebpackPlugin({

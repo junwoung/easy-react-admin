@@ -8,7 +8,7 @@ import './App2.less';
 function App() {
   return (
     <div className="App">
-      <header className="App-header block" styleName="block">
+      <header className="App-header" styleName="block">
         <p>
           Edit <code>src/App.tsx</code> and save to reload.
         </p>
